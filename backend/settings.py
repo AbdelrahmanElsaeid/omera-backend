@@ -33,7 +33,7 @@ SECRET_KEY = 'django-insecure-b4&@p+%so8fq4eg#5zad)u))m7#im(_bebh-l31lo%_#=7$1t-
 DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
-
+CSRF_TRUSTED_ORIGINS = ['https://omera2-production.up.railway.app','http://127.0.0.1:8000']
 
 # Application definition
 
