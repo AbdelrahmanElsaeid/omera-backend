@@ -19,7 +19,7 @@ from django.utils.translation import gettext as _
 
 # Create your views here.
 
-stripe.api_key = settings.STRIPE_SECRET_KEY
+# stripe.api_key = settings.STRIPE_SECRET_KEY
 
 def send_notification(user=None, vendor=None, order=None, order_item=None):
     Notification.objects.create(
