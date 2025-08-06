@@ -250,24 +250,24 @@ class PaymobCallbackView(APIView):
     
                 
                     #return Response({"message":"Payment Successfull"})
-                    redirect_url = 'http://localhost:4200/payment/success/'
+                    redirect_url = 'https://omera-black.vercel.app/payment/success/'
                     return HttpResponseRedirect(redirect_url)
                 else:
                     return Response({"message":"Already Paid"})
 
             elif success == "false":
                 #return Response({"message":"Your Invoice is Unpaid"})
-                redirect_url = 'http://localhost:4200/payment/fail/'
+                redirect_url = 'https://omera-black.vercel.app/payment/fail/'
                 return HttpResponseRedirect(redirect_url) 
             else:
                 #return Response({"message":"An Error Occured, Try Again..."}) 
-                redirect_url = 'http://localhost:4200/payment/fail/'
+                redirect_url = 'https://omera-black.vercel.app/payment/fail/'
                 return HttpResponseRedirect(redirect_url)                
         
         else:
             #print("Received HMAC:", received_hmac)
             #return Response("not secure")
-            redirect_url = 'http://localhost:4200/payment/fail/'
+            redirect_url = 'https://omera-black.vercel.app/payment/fail/'
             return HttpResponseRedirect(redirect_url)
 
 
