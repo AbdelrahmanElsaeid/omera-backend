@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 
 # Create your views here.
 from .models import Vendor
@@ -20,7 +20,7 @@ from datetime import datetime, time, timedelta
 from django.utils.translation import gettext as _
 from rest_framework.decorators import api_view
 from rest_framework.exceptions import ValidationError
-
+from django.db.models import Prefetch
 # Create your views here.
 
 
@@ -73,20 +73,15 @@ def MonthlyProductChartAPIView(request, vendor_id):
 
 
 class ProductsAPIView(generics.ListAPIView):
-    serializer_class = ProductVendorListSerializer#ProductSerializer
+    serializer_class = ProductVendorListSerializer
     permission_classes = (AllowAny,)
 
     def get_queryset(self):
         vendor_id = self.kwargs['vendor_id']
-        vendor = Vendor.objects.get(id=vendor_id)
-        products = Product.objects.filter(vendor=vendor)
+        products = Product.objects.select_related('category').filter(vendor=vendor_id)
         return products
     
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context['currency_code'] = self.kwargs.get('currency')
-        return context 
-
+    
 
 class OrdersAPIView(generics.ListAPIView):
     serializer_class = CartOrderVendorAllOrdersSerializer
@@ -94,8 +89,7 @@ class OrdersAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         vendor_id = self.kwargs['vendor_id']
-        vendor = Vendor.objects.get(id=vendor_id)
-        orders = CartOrder.objects.filter(vendor=vendor, payment_status="paid")
+        orders = CartOrder.objects.prefetch_related(Prefetch('orderitem',to_attr='prefetech_orderitem')).filter(vendor=vendor_id, payment_status="paid")
         return orders
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -108,7 +102,7 @@ class OrdersAPIView(generics.ListAPIView):
 
 
 
-
+from django.db.models import Sum, F
 class OrderDetailAPIView(generics.ListAPIView):
     serializer_class = CartOrderItemVendorSerializer
     permission_classes = [AllowAny,]
@@ -120,9 +114,11 @@ class OrderDetailAPIView(generics.ListAPIView):
 
         order = CartOrder.objects.get(vendor=vendor, oid=order_oid)
 
-        querset = CartOrderItem.objects.filter(vendor=vendor, order=order)
+        querset = CartOrderItem.objects.select_related('product','product__category','vendor').prefetch_related('coupon').filter(order=order)
         
         return querset
+
+    
     
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -133,21 +129,20 @@ class OrderDetailAPIView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
 
-        # Calculate combined totals
-        combined_totals = {
-            'subtotal': sum(float(item.sub_total) for item in queryset),
-            'total': sum(float(item.total) for item in queryset),
-            'shipping_amount': sum(float(item.shipping_amount) for item in queryset),
-            'service_fee': sum(float(item.service_fee) for item in queryset),
-            'tax_fee': sum(float(item.tax_fee) for item in queryset),
-            'initial_total': sum(float(item.initial_total) for item in queryset),
-            'saved': sum(float(item.saved) for item in queryset),
-            
-        }
+        
+        totals = queryset.aggregate(
+            subtotal=Sum(F('sub_total')),
+            total=Sum(F('total')),
+            shipping_amount=Sum(F('shipping_amount')),
+            service_fee=Sum(F('service_fee')),
+            tax_fee=Sum(F('tax_fee')),
+            initial_total=Sum(F('initial_total')),
+            saved=Sum(F('saved')),
+        )
 
         # Serialize queryset and combined_totals
         serializer = self.get_serializer(queryset, many=True)
-        combined_totals_serializer = CombinedTotalsSerializer(combined_totals)
+        combined_totals_serializer = CombinedTotalsSerializer(totals)
 
         # Create response data
         data = {

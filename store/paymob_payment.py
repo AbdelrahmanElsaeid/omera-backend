@@ -1,26 +1,21 @@
-from django.shortcuts import render,redirect
-from store.models import Category,Product,Cart,Tax,CartOrder,CartOrderItem,Coupon,Notification,Review
-from store.serializer import CartSerializer, ProductSerializer,CategorySerializer,CartOrderSerializer,CouponSerializer,NotificationSerializer,ReviewSerializer,Product2Serializer
-from rest_framework import generics,status
-from rest_framework.permissions import AllowAny 
-from userauths.models import User
-from decimal import Decimal
-from rest_framework.response import Response
-import stripe
-from django.conf import settings
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.decorators import api_view
-from django.views.decorators.csrf import csrf_exempt
 import hashlib
-import os
 import hmac
-from django.http import JsonResponse, HttpResponseRedirect
-from django.urls import reverse
-import requests
-import json
+import os
 
-API_KEY = 'ZXlKaGJHY2lPaUpJVXpVeE1pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SmpiR0Z6Y3lJNklrMWxjbU5vWVc1MElpd2ljSEp2Wm1sc1pWOXdheUk2T1RJNU9EQXlMQ0p1WVcxbElqb2lhVzVwZEdsaGJDSjkuSTBwN1VTQVBaZl9FRHhrLS1XUzl1LXJsSTBwOGpTenE4WUNmSVkyTmhyYU9fOHZVZHVhS3NqcDZVYVkwMU1lS1dzS3VhRG5PMk9ySHAxVF9rdThNU1E='  # your API key here
+import requests
+from django.http import HttpResponseRedirect
+from django.shortcuts import redirect
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework import status
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from store.models import Cart, CartOrder, CartOrderItem, Notification
+from store.serializer import CartOrderSerializer
+
+API_KEY = os.environ.get('PAYMOB_API_KEY')
+FRONTEND_URL = os.environ.get('FRONTEND_BASE_URL')
 
 
 def send_notification(user=None, vendor=None, order=None, order_item=None):
@@ -109,36 +104,24 @@ def wallet_mobile(phone_num,payment_token):
 class PaymobPaymentView(APIView):
 
     def get(self, request, order_oid, payment_method):
-
-
         phone_num = request.query_params.get('phone_num')
-    
-
-    
         order = CartOrder.objects.get(oid=order_oid)
-
-        grand_total = float(order.total * 100)
-
-                
+        grand_total = float(order.total * 100)                
         # Perform the first step to obtain the token
-        token = get_auth_token()
-
-        
+        token = get_auth_token()        
         # Perform the second step to create the order   
-        #order_data = create_order(token,grand_total, order_oid)
 
         try:  
             order_data = create_order(token,grand_total, order_oid)
         except:
             return Response({"message": "An error occurred while creating the order. Please login again and try to pay."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-
         # Perform the third step to generate the payment token 
 
         if payment_method =="card":
-            integration_id=4302305
+            integration_id=int(os.environ.get('CARD_INTEGRATION_ID'))
         elif payment_method =="wallet":
-            integration_id=4566028 
+            integration_id=int(os.environ.get('WALLET_INTEGRATION_ID')) 
         else:
             return Response({"message":"Payment Method Not Found"}, status=status.HTTP_404_NOT_FOUND)
         
@@ -211,7 +194,7 @@ class PaymobCallbackView(APIView):
         # print("Concatenated String:", concatenated_string)
 
 
-        key = '53BA55760BB68D9EFE1BB7788CECA8FF'
+        key = os.environ.get('PAYMOB_HMACK_KEY')
         computed_hmac = hmac.new(key.encode(),concatenated_string.encode(),hashlib.sha512).hexdigest()
 
         
@@ -249,29 +232,32 @@ class PaymobCallbackView(APIView):
                         send_notification(vendor=o.vendor, order=order, order_item=o)    
     
                 
-                    #return Response({"message":"Payment Successfull"})
-                    redirect_url = 'http://localhost:4200/payment/success/'
+                    redirect_url = f'{FRONTEND_URL}/payment-success/{merchant_order_id}'
                     return HttpResponseRedirect(redirect_url)
                 else:
                     return Response({"message":"Already Paid"})
 
             elif success == "false":
-                #return Response({"message":"Your Invoice is Unpaid"})
-                redirect_url = 'http://localhost:4200/payment/fail/'
+                redirect_url = f'{FRONTEND_URL}/payment/fail/'
                 return HttpResponseRedirect(redirect_url) 
             else:
-                #return Response({"message":"An Error Occured, Try Again..."}) 
-                redirect_url = 'http://localhost:4200/payment/fail/'
+                redirect_url = f'{FRONTEND_URL}/payment/fail/'
                 return HttpResponseRedirect(redirect_url)                
         
         else:
-            #print("Received HMAC:", received_hmac)
-            #return Response("not secure")
-            redirect_url = 'http://localhost:4200/payment/fail/'
+            
+            redirect_url = f'{FRONTEND_URL}/payment/fail/'
             return HttpResponseRedirect(redirect_url)
 
 
 
+class CheckPaymentView(APIView):
+    serializer_class = CartOrderSerializer
+    permission_classes = [AllowAny]
 
+    def get(self, request, *args, **kwargs):
+        order_oid = self.kwargs['order_oid']
+        order = CartOrder.objects.get(oid=order_oid)
+        return Response({"message": "Payment Successfull","status": order.payment_status},status=status.HTTP_200_OK)
 
-      
+    

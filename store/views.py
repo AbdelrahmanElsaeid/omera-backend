@@ -11,7 +11,7 @@ from .myfilter import ProductFilter
 from .mypagination import ProductPagination
 import stripe
 from django.conf import settings
-from django.db.models import Q
+from django.db.models import Q,Count
 from django.http import Http404
 from django.utils.translation import get_language
 from django.utils.translation import gettext as _
@@ -214,16 +214,12 @@ class ReviewListAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         product_id = self.kwargs['product_id']
-        product = Product.objects.get(id=product_id)
-        reviews = Review.objects.filter(product=product)
-        return reviews
+       
+        return Review.objects.select_related('user').prefetch_related('user__user_profile').filter(product=product_id)
     
     def list(self, request, *args, **kwargs):
-        product_id = self.kwargs['product_id']
-        product = Product.objects.get(id=product_id)
-
-        reviews = Review.objects.filter(product=product)
-        review_serializer = ReviewSerializer(reviews, many=True)
+        reviews_qs = self.get_queryset()
+        review_serializer = ReviewSerializer(reviews_qs, many=True)
 
 
         for review in review_serializer.data:
@@ -231,13 +227,15 @@ class ReviewListAPIView(generics.ListCreateAPIView):
             if profile and 'image' in profile:
                 profile['image'] = self.get_complete_image_url(profile['image'])
 
-        review_summary = {
-            "one_star": reviews.filter(rating=1).count(),
-            "two_star": reviews.filter(rating=2).count(),
-            "three_star": reviews.filter(rating=3).count(),
-            "four_star": reviews.filter(rating=4).count(),
-            "five_star": reviews.filter(rating=5).count()
-        }
+        review_summary = reviews_qs.aggregate(
+        one_star=Count('id', filter=Q(rating=1)),
+        two_star=Count('id', filter=Q(rating=2)),
+        three_star=Count('id', filter=Q(rating=3)),
+        four_star=Count('id', filter=Q(rating=4)),
+        five_star=Count('id', filter=Q(rating=5)),
+    )        
+
+        
         review_summary_serializer = ReviewSummarySerializer(data=review_summary)
         review_summary_serializer.is_valid()
 
