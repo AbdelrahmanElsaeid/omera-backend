@@ -255,9 +255,16 @@ class CheckPaymentView(APIView):
     serializer_class = CartOrderSerializer
     permission_classes = [AllowAny]
 
+class CheckPaymentView(APIView):
+    serializer_class = CartOrderSerializer
+    permission_classes = [AllowAny]
+
     def get(self, request, *args, **kwargs):
         order_oid = self.kwargs['order_oid']
         order = CartOrder.objects.get(oid=order_oid)
         return Response({"message": "Payment Successfull","status": order.payment_status},status=status.HTTP_200_OK)
 
     
+
+
+      
