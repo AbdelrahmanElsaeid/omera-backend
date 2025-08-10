@@ -1,23 +1,21 @@
-# 1️⃣ Start from Python image
-FROM python:3.11-slim-bullseye
+# استخدم Python الرسمي
+FROM python:3.11-slim
 
-# 2️⃣ Environment settings
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PATH="/root/.local/bin:$PATH"
-
-# 3️⃣ Install dependencies
-RUN apt-get update && apt-get -y install gcc libpq-dev && apt-get clean
-
-# 4️⃣ Create and set work directory
+# إعداد بيئة العمل
 WORKDIR /app
 
-# 5️⃣ Install Python dependencies
-COPY requirements.txt /app/
-RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
+# نسخ requirements وتثبيتها
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# 6️⃣ Copy project files
-COPY . /app/
+# نسخ باقي المشروع
+COPY . .
 
-# 7️⃣ Run gunicorn as default
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "config.wsgi:application"]
+# التأكد إن المجلد config موجود
+RUN ls -la && ls -la config
+
+# البورت اللي هيشتغل عليه Gunicorn
+EXPOSE 8000
+
+# أمر التشغيل الافتراضي
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "backend.wsgi:application"]

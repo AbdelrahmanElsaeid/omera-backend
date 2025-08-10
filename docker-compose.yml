@@ -6,27 +6,13 @@ services:
     container_name: postgres-db
     restart: always
     environment:
-      POSTGRES_DB: mydatabase
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-
-  minio:
-    image: minio/minio:latest
-    container_name: minio
-    restart: always
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin123
-    command: server /data --console-address ":9001"
-    volumes:
-      - minio_data:/data
-    ports:
-      - "9000:9000" # API
-      - "9001:9001" # Web UI
 
   django:
     build: .
@@ -36,25 +22,23 @@ services:
     volumes:
       - .:/app
     ports:
-      - "8090:8080"
+      - "8090:8000"
     depends_on:
       - db
-      - minio
     environment:
-      DB_NAME: mydatabase
-      DB_USER: myuser
-      DB_PASSWORD: mypassword
-      DB_HOST: db
-      DB_PORT: 5432
-      SECRET_KEY: your_secret_key
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      SECRET_KEY: ${SECRET_KEY}
       DEBUG: "False"
 
-      # S3 / MinIO environment
-      AWS_ACCESS_KEY_ID: minioadmin
-      AWS_SECRET_ACCESS_KEY: minioadmin123
-      AWS_STORAGE_BUCKET_NAME: media-bucket
-      AWS_S3_ENDPOINT_URL: http://minio:9000
+      # MinIO from Coolify
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME}
+      AWS_S3_ENDPOINT_URL: ${AWS_S3_ENDPOINT_URL}
 
 volumes:
   postgres_data:
-  minio_data:
