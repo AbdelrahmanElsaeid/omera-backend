@@ -11,8 +11,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # نسخ باقي المشروع
 COPY . .
 
-# التأكد إن المجلد config موجود
-RUN ls -la && ls -la config
+# التأكد إن المجلد backend موجود
+RUN ls -la && ls -la backend
 
 # البورت اللي هيشتغل عليه Gunicorn
 EXPOSE 8000
