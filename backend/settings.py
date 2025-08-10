@@ -29,13 +29,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-b4&@p+%so8fq4eg#5zad)u))m7#im(_bebh-l31lo%_#=7$1t-'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
 
-ALLOWED_HOSTS = ["*"]
-CSRF_TRUSTED_ORIGINS = ['https://omera2-production.up.railway.app','http://127.0.0.1:8000']
+SECRET_KEY = os.environ.get("SECRET_KEY", "insecure-default-key")
+DEBUG = env.bool("DEBUG", False)
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "").split(",")
+CSRF_TRUSTED_ORIGINS = os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
 
 # Application definition
 
@@ -97,15 +96,14 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-live = os.environ.get('DB_LIVE')
-if live=='False':
+if DEBUG:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
-else:    
+else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -167,29 +165,34 @@ LOCALE_PATHS = [
 
 # DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 
-# AWS_ACCESS_KEY_ID = 'minioadmin'
-# AWS_SECRET_ACCESS_KEY = 'minioadmin'
-# AWS_STORAGE_BUCKET_NAME = 'omera'
+if DEBUG:
+    STATIC_URL = "/static/"
+    STATICFILES_DIRS = [BASE_DIR / 'static']
+    STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# AWS_S3_ENDPOINT_URL = 'http://minio:9000'  # مهم!
-# AWS_S3_FILE_OVERWRITE = False
-# AWS_DEFAULT_ACL = None
-# AWS_S3_ADDRESSING_STYLE = 'path'
+    MEDIA_URL = "/media/"
+    MEDIA_ROOT = BASE_DIR / 'media'
+else:
+    AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME")
+    AWS_S3_ENDPOINT_URL = os.environ.get("AWS_S3_ENDPOINT_URL")
+    AWS_QUERYSTRING_AUTH = False
 
-# MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/"
+    STATICFILES_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+
+    STATIC_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/static/"
+    MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/media/"
 
 
-STATIC_URL = "static/"
-STATICFILES_DIRS = [BASE_DIR, 'static']
-STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+
 
 CORS_ALLOW_ALL_ORIGINS = True
 
 AUTH_USER_MODEL = 'userauths.User'
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+# STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
