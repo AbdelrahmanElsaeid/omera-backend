@@ -465,13 +465,14 @@ class CreateOrderAPIView(generics.CreateAPIView):
         payload = request.data
 
 
+
         fullname = payload['full_name']
         mobile = payload['mobile']
         address = payload['address']
         state = payload['state']
         city = payload['city']
-        country = payload['country']
-        email = payload['email']
+        country = 'Egypt'
+        # email = payload['email'] 
 
         cart_id = payload['cart_id']
         user_id = payload['user_id']
@@ -505,7 +506,7 @@ class CreateOrderAPIView(generics.CreateAPIView):
         state = state, 
         city = city, 
         country = country,  
-        email = email, 
+        # email = email, 
         cart_order_id=cart_order_id,
         payment_status="pending", 
 

@@ -302,7 +302,7 @@ class CartOrder(models.Model):
     initial_total = models.DecimalField(default=0.00, max_digits=12, decimal_places=2, help_text="The original total before discounts")
     saved = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, null=True, blank=True, help_text="Amount saved by customer")
     full_name = models.CharField(max_length=1000)
-    email = models.CharField(max_length=1000)
+    email = models.CharField(max_length=1000,blank=True, null=True)
     mobile = models.CharField(max_length=1000)
     address = models.CharField(max_length=1000, null=True, blank=True)
     city = models.CharField(max_length=1000, null=True, blank=True)
