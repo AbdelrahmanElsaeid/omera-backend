@@ -60,7 +60,7 @@ def generate_payment_token(token,order_data,order,integration_id):
             "first_name": order.full_name,
             "last_name": order.full_name,
             "phone_number": order.mobile, 
-            "email": order.email,
+            "email": "NA",
             "apartment": "NA",
             "floor": "NA",
             "street": order.address,
@@ -69,7 +69,7 @@ def generate_payment_token(token,order_data,order,integration_id):
             "postal_code": order.mobile,
             "city": order.city,
             "state": order.state if order.state else "NA",
-            "country": order.country
+            "country": "Egypt"
         },
         "currency": "EGP",
         "integration_id": integration_id
