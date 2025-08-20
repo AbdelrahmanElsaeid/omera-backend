@@ -20,8 +20,8 @@ class SizeInline(admin.TabularInline):
 #     extra=0           
 
 class ProductAdmin(admin.ModelAdmin):
-    list_display=['id','title_en','category','brand','shipping_amount','stock_qty','in_stock','vendor','featured']
-    list_editable=['featured']
+    list_display=['id','title_en','category','brand','shipping_amount','stock_qty','in_stock','vendor','featured','is_new']
+    list_editable=['featured','is_new']
     list_filter=['date']
     search_fields=['title']
     inlines = [GalleryInline, ColorInline,SizeInline,SpecificationInline]

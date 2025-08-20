@@ -5,7 +5,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from store import views as store_views
 from customer import views as customer_views
 from vendor import views as vendor_views
-from store.paymob_payment import CheckPaymentView, PaymobPaymentView, PaymobCallbackView
+from store.paymob_payment import CheckPaymentView, PaymentCashView, PaymobPaymentView, PaymobCallbackView
 
 urlpatterns = [
     path('user/token/', userauths_views.MyTokenOptainPairView.as_view()),
@@ -37,6 +37,7 @@ urlpatterns = [
     path('product/brand/<currency>/<str:brand>/',store_views.ProductBrandListAPIView.as_view()),
     path('product-popular/<currency>/',store_views.PopularProductsAPIView.as_view()),
     path('product-bestseller/<currency>/',store_views.BestSellerProductsAPIView.as_view()),
+    path('product-new/', store_views.ProductNewCollectionsAPIView.as_view()),
     
     path('products/create/', store_views.ProductCreateAPIView.as_view()),
     path('products/update/<int:pk>/', store_views.ProductCreateAPIView.as_view()),
@@ -59,6 +60,7 @@ urlpatterns = [
     #payments
     path('stripe-checkout/<order_oid>/<cart_id>/',store_views.StripeCheckoutView.as_view()),
     path('payment-success/<order_oid>/',store_views.PaymentSuccessView.as_view()),
+    path('cash-payment/<order_oid>/',PaymentCashView.as_view()),
 
     #paymob payment
 

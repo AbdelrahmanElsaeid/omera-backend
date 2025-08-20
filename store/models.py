@@ -65,9 +65,7 @@ class Product(models.Model):
     title_ar = models.CharField(max_length=100,null=True, blank=True)
     description_en = models.TextField(null=True, blank=True)
     description_ar = models.TextField(null=True, blank=True)
-    #title = models.CharField(max_length=100)
     image = models.FileField(upload_to="product",default="product.jpg", null=True, blank=True)
-    #description = models.TextField(null=True, blank=True)
     category= models.ForeignKey(Category, on_delete=models.CASCADE, null=True, blank=True)
     brand= models.ForeignKey(Brand, on_delete=models.CASCADE, null=True, blank=True)
     price_EGP = models.DecimalField(decimal_places=2, max_digits=12, default=0.00 , null=True, blank=True)
@@ -84,6 +82,8 @@ class Product(models.Model):
     pid = ShortUUIDField(unique=True, length=10, alphabet="abcdefg123456")
     slug = models.SlugField(unique=True,null=True,blank=True)
     date = models.DateTimeField(auto_now_add=True)
+    sku = models.CharField(max_length=100, null=True, blank=True)
+    is_new = models.BooleanField(default=False)
 
  
 
@@ -282,6 +282,7 @@ class CartOrder(models.Model):
         ("refunded", _('Refunded')),
         ("unpaid", _('Unpaid')),
         ("expired", _('Expired')),
+        ("cash", _('Cash')),
     )
 
     ORDER_STATUS = (

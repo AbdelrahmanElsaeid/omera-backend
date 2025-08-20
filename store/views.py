@@ -317,7 +317,9 @@ class CartAPIView(generics.ListCreateAPIView):
             cart.cart_id=cart_id
 
 
-            service_fee_percentage = 10 / 100
+            # service_fee_percentage = 10 / 100
+            service_fee_percentage = 0
+
             cart.service_fee = Decimal(service_fee_percentage)  * cart.sub_total
 
             cart.total =cart.sub_total + cart.shipping_amount + cart.tax_fee
@@ -340,7 +342,8 @@ class CartAPIView(generics.ListCreateAPIView):
             cart.cart_id=cart_id
 
 
-            service_fee_percentage = 10 / 100
+            # service_fee_percentage = 10 / 100
+            service_fee_percentage = 0
             cart.service_fee = Decimal(service_fee_percentage) * cart.sub_total
 
             cart.total =cart.sub_total + cart.shipping_amount + cart.tax_fee
@@ -463,7 +466,6 @@ class CreateOrderAPIView(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         payload = request.data
-
 
 
         fullname = payload['full_name']
@@ -751,7 +753,7 @@ class Fpro(generics.ListAPIView):
         #     queryset = Product.objects.select_related('category','brand','vendor').prefetch_related('specification__set','gallery__set','color__set','size__set').exclude(price_EGP=0)
         # else:
             # If the currency is not supported, you can handle it here
-        queryset = Product.objects.all().select_related('category','brand','vendor').prefetch_related('specification__set','gallery__set','color__set','size__set')
+        queryset = Product.objects.filter(stock_qty__gt=0).select_related('category','brand','vendor').prefetch_related('specification__set','gallery__set','color__set','size__set')
 
         brand_ids_str = self.request.query_params.get('brand_ids')
         category_ids_str = self.request.query_params.get('category_ids')
@@ -923,3 +925,16 @@ class ProductCreateAPIView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)        
+    
+
+
+
+class ProductNewCollectionsAPIView(generics.ListAPIView):
+    queryset=Product.objects.filter(is_new=True,in_stock=True)
+    serializer_class= ProductListSerializer
+    permission_classes = [AllowAny]
+    # pagination_class = ProductPagination
+
+    
+
+    

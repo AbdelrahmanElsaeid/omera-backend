@@ -688,7 +688,7 @@ class ProductAddSerializer(serializers.ModelSerializer):
             "price_AED",
             # "prices",
             "old_price",
-            "shipping_amount",
+            # "shipping_amount",
             "stock_qty",
             "in_stock",
             "status",
@@ -706,6 +706,8 @@ class ProductAddSerializer(serializers.ModelSerializer):
             "product_rating",
             "rating_count",
             "orders",
+            "sku",
+            "is_new",
         ]
 
     # def get_image(self, instance):

@@ -20,7 +20,7 @@ from datetime import datetime, time, timedelta
 from django.utils.translation import gettext as _
 from rest_framework.decorators import api_view
 from rest_framework.exceptions import ValidationError
-from django.db.models import Prefetch
+from django.db.models import Prefetch,Q
 # Create your views here.
 
 
@@ -89,7 +89,7 @@ class OrdersAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         vendor_id = self.kwargs['vendor_id']
-        orders = CartOrder.objects.prefetch_related(Prefetch('orderitem',to_attr='prefetech_orderitem')).filter(vendor=vendor_id, payment_status="paid")
+        orders = CartOrder.objects.prefetch_related(Prefetch('orderitem',to_attr='prefetech_orderitem')).filter(Q(payment_status='cash') | Q(payment_status='paid'),vendor=vendor_id)
         return orders
     def get_serializer_context(self):
         context = super().get_serializer_context()

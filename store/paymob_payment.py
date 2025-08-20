@@ -267,4 +267,31 @@ class CheckPaymentView(APIView):
     
 
 
-      
+
+class PaymentCashView(APIView):
+    def post(self, request, *args, **kwargs):
+        order_oid = self.kwargs['order_oid']
+        try:
+            order = CartOrder.objects.get(oid=order_oid)
+            carts = Cart.objects.filter(cart_id=order.cart_order_id)
+
+            if order.payment_status == "pending":
+                order.payment_status = "cash"
+                order.save()
+                carts.delete()
+
+                return Response(
+                    {"message": "Payment successful. Order marked as cash on delivery."},
+                    status=status.HTTP_200_OK
+                )
+            else:
+                return Response(
+                    {"message": "Order is not pending, cannot update payment."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        except CartOrder.DoesNotExist:
+            return Response(
+                {"error": "Order not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
