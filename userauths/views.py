@@ -257,12 +257,11 @@ class PasswordChangeView(generics.CreateAPIView):
 
 class ProfileView(generics.RetrieveUpdateAPIView):
     serializer_class=ProfileSerializer
-    # permission_classes = [AllowAny,]
     authentication_classes = [JWTAuthentication] 
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
-        user_id = self.request.user.id #self.kwargs['user_id']
+        user_id = self.request.user.id 
 
         user = User.objects.get(id=user_id)
         profile = Profile.objects.get(user=user)

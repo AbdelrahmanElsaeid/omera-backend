@@ -281,11 +281,19 @@ class PaymentCashView(APIView):
         try:
             order = CartOrder.objects.get(oid=order_oid)
             carts = Cart.objects.filter(cart_id=order.cart_order_id)
+            order_items = CartOrderItem.objects.filter(order=order)
 
             if order.payment_status == "pending":
                 order.payment_status = "cash"
                 order.save()
                 carts.delete()
+                #send notification to customers
+                if order.buyer != None:
+                    send_notification(user=order.buyer, order=order)
+
+                #send notification to vendor
+                for o in order_items:
+                    send_notification(vendor=o.vendor, order=order, order_item=o)
 
                 return Response(
                     {"message": "Payment successful. Order marked as cash on delivery."},

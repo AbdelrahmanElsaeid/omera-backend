@@ -1,29 +1,64 @@
-from django.shortcuts import get_object_or_404, render
 
-from userauths.permissions import IsVendor
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.permissions import IsAuthenticated
-# Create your views here.
-from .models import Vendor
-from store.serializer import SummarySerializer, ProductSerializer,CartOrderItemSerializer,CartOrderSerializer, EarningSerializer, ReviewSerializer,CouponSerializer,CouponSummarySerializer,NotificationSerializer,NotificationSummarySerializer,VendorSerializer, ColorSerializer,SpecificationSerializer,SizeSerializer,GallerySerializer,ProductAddSerializer,ColorAddSerializer,SizeAddSerializer,SpecificationAddSerializer,ProductListSerializer,ProductVendorListSerializer,ColorUpdateSerializer,SizeUpdateSerializer,SpecificationUpdateSerializer,CartOrderItemVendorSerializer, CombinedTotalsSerializer, CartOrderVendorAllOrdersSerializer
-from django.shortcuts import render,redirect
-from store.models import Category,Product,Cart,Tax,CartOrder,CartOrderItem,Coupon,Notification,Review,Gallery,Color,Size,Specification
-from rest_framework import generics,status
-from rest_framework.permissions import AllowAny 
-from userauths.models import User,Profile
-from userauths.serializer import ProfileSerializer
-from django.db import transaction
+from datetime import datetime, timedelta
+
 from django.conf import settings
-from decimal import Decimal
-from rest_framework.response import Response
-from django.db import models
-import requests
+from django.db import models, transaction
+from django.db.models import F, Prefetch, Q, Sum
 from django.db.models.functions import ExtractMonth
-from datetime import datetime, time, timedelta
 from django.utils.translation import gettext as _
+from rest_framework import generics, status
 from rest_framework.decorators import api_view
 from rest_framework.exceptions import ValidationError
-from django.db.models import Prefetch,Q
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
+from store.models import (
+    CartOrder,
+    CartOrderItem,
+    Color,
+    Coupon,
+    Gallery,
+    Notification,
+    Product,
+    Review,
+    Size,
+    Specification,
+)
+from store.serializer import (
+    CartOrderItemSerializer,
+    CartOrderItemVendorSerializer,
+    CartOrderVendorAllOrdersSerializer,
+    ColorAddSerializer,
+    ColorSerializer,
+    ColorUpdateSerializer,
+    CombinedTotalsSerializer,
+    CouponSerializer,
+    CouponSummarySerializer,
+    EarningSerializer,
+    GallerySerializer,
+    NotificationSerializer,
+    NotificationSummarySerializer,
+    ProductAddSerializer,
+    ProductSerializer,
+    ProductVendorListSerializer,
+    ReviewSerializer,
+    SizeAddSerializer,
+    SizeSerializer,
+    SizeUpdateSerializer,
+    SpecificationAddSerializer,
+    SpecificationSerializer,
+    SpecificationUpdateSerializer,
+    SummarySerializer,
+    VendorSerializer,
+)
+from userauths.models import Profile
+from userauths.permissions import IsVendor
+from userauths.serializer import ProfileSerializer
+
+# Create your views here.
+from .models import Vendor
+
 # Create your views here.
 
 
@@ -34,14 +69,14 @@ class DashboardStatsAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated, IsVendor]
 
     def get_queryset(self):
-        vendor_id = self.kwargs['vendor_id']
-        vendor = Vendor.objects.get(id=vendor_id)
+       
 
         #calculate summary value
+        user = self.request.user
 
-        product_count = Product.objects.filter(vendor=vendor).count()
-        order_count = CartOrder.objects.filter(vendor=vendor, payment_status='paid').count()
-        revenue = CartOrderItem.objects.filter(vendor=vendor, order__payment_status="paid").aggregate(total_revenue=models.Sum(models.F('sub_total') + models.F('shipping_amount')))['total_revenue'] or 0
+        product_count = Product.objects.filter(vendor__user=user).count()
+        order_count = CartOrder.objects.filter(Q(payment_status='paid')|Q(payment_status='cash'),vendor__user=user).count()
+        revenue = CartOrderItem.objects.filter(Q(order__payment_status='paid')|Q(order__payment_status='cash'),vendor__user=user, ).aggregate(total_revenue=models.Sum(models.F('sub_total') + models.F('shipping_amount')))['total_revenue'] or 0
 
 
         return [{
@@ -82,8 +117,7 @@ class ProductsAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated, IsVendor]
 
     def get_queryset(self):
-        vendor_id = self.kwargs['vendor_id']
-        products = Product.objects.select_related('category').filter(vendor=vendor_id)
+        products = Product.objects.select_related('category').filter(vendor__user=self.request.user)
         return products
     
     
@@ -95,33 +129,25 @@ class OrdersAPIView(generics.ListAPIView):
 
 
     def get_queryset(self):
-        vendor_id = self.kwargs['vendor_id']
-        orders = CartOrder.objects.prefetch_related(Prefetch('orderitem',to_attr='prefetech_orderitem')).filter(Q(payment_status='cash') | Q(payment_status='paid'),vendor=vendor_id)
+        orders = CartOrder.objects.prefetch_related(Prefetch('orderitem',to_attr='prefetech_orderitem')).filter(Q(payment_status='cash') | Q(payment_status='paid'),vendor__user=self.request.user)
         return orders
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['request'] = self.request
-        vendor_id = self.kwargs['vendor_id']
-        context['vendor_id'] = vendor_id
         return context 
     
     
 
 
 
-from django.db.models import Sum, F
 class OrderDetailAPIView(generics.ListAPIView):
     serializer_class = CartOrderItemVendorSerializer
     authentication_classes = [JWTAuthentication] 
     permission_classes = [IsAuthenticated, IsVendor]
 
     def get_queryset(self):
-        vendor_id = self.kwargs['vendor_id']
         order_oid = self.kwargs['order_oid']
-        vendor = Vendor.objects.get(id=vendor_id)
-
-        order = CartOrder.objects.get(vendor=vendor, oid=order_oid)
-
+        order = CartOrder.objects.get(vendor__user=self.request.user, oid=order_oid)
         querset = CartOrderItem.objects.select_related('product','product__category','vendor').prefetch_related('coupon').filter(order=order)
         
         return querset
@@ -170,9 +196,7 @@ class RevenueAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated, IsVendor]
 
     def get_queryset(self):
-        vendor_id = self.kwargs['vendor_id']
-        vendor = Vendor.objects.get(id=vendor_id)
-        revenue = CartOrderItem.objects.filter(vendor=vendor, order__payment_status="paid").aggregate(
+        revenue = CartOrderItem.objects.filter(vendor__user=self.request.user, order__payment_status="paid").aggregate(
             total_revenue=models.Sum(models.F('sub_total') + models.F('shipping_amount')))['total_revenue'] or 0
         return revenue
     
@@ -185,19 +209,17 @@ class FilterProductsAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated, IsVendor]
 
     def get_queryset(self):
-        vendor_id = self.kwargs['vendor_id']
-        vendor = Vendor.objects.get(id=vendor_id)
         filter = self.request.GET.get("filter")
         if filter == "published":
-            products = Product.objects.filter(vendor=vendor, status="published")
+            products = Product.objects.filter(vendor__user=self.request.user, status="published")
         elif filter == "in_review":  
-            products = Product.objects.filter(vendor=vendor, status="in_review")
+            products = Product.objects.filter(vendor__user=self.request.user, status="in_review")
         elif filter == "draft":  
-            products = Product.objects.filter(vendor=vendor, status="draft")  
+            products = Product.objects.filter(vendor__user=self.request.user, status="draft")  
         elif filter == "disabled":  
-            products = Product.objects.filter(vendor=vendor, status="disabled")
+            products = Product.objects.filter(vendor__user=self.request.user, status="disabled")
         else:
-            products = Product.objects.filter(vendor=vendor)
+            products = Product.objects.filter(vendor__user=self.request.user)
         return products
 
 class EarningAPIView(generics.ListAPIView):
@@ -206,12 +228,9 @@ class EarningAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated, IsVendor]  
 
     def get_queryset(self):
-        vendor_id = self.kwargs['vendor_id']
-        vendor = Vendor.objects.get(id=vendor_id)
-
         one_month_ago = datetime.today() - timedelta(days=28)
-        monthly_revenue = CartOrderItem.objects.filter(vendor=vendor, order__payment_status="paid", date__gte=one_month_ago).aggregate(total_revenue=models.Sum(models.F('sub_total') + models.F('shipping_amount')))['total_revenue'] or 0
-        total_revenue = CartOrderItem.objects.filter(vendor=vendor, order__payment_status="paid").aggregate(total_revenue=models.Sum(models.F('sub_total') + models.F('shipping_amount')))['total_revenue'] or 0
+        monthly_revenue = CartOrderItem.objects.filter(vendor__user=self.request.user, order__payment_status="paid", date__gte=one_month_ago).aggregate(total_revenue=models.Sum(models.F('sub_total') + models.F('shipping_amount')))['total_revenue'] or 0
+        total_revenue = CartOrderItem.objects.filter(vendor__user=self.request.user, order__payment_status="paid").aggregate(total_revenue=models.Sum(models.F('sub_total') + models.F('shipping_amount')))['total_revenue'] or 0
 
         return[{
             'monthly_revenue':monthly_revenue,
@@ -253,9 +272,7 @@ class ReviewsListAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated, IsVendor]
 
     def get_queryset(self):
-        vendor_id = self.kwargs['vendor_id']
-        vendor = Vendor.objects.get(id=vendor_id)
-        reviews = Review.objects.filter(product__vendor=vendor)
+        reviews = Review.objects.filter(product__vendor__user=self.request.user)
         return reviews
 
 
@@ -266,11 +283,8 @@ class ReviewsDetailAPIView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated, IsVendor]
 
     def get_object(self):
-        vendor_id = self.kwargs['vendor_id']
         review_id = self.kwargs['review_id']
-
-        vendor = Vendor.objects.get(id=vendor_id)
-        review = Review.objects.get(product__vendor=vendor, id=review_id)
+        review = Review.objects.get(product__vendor__user=self.request.user, id=review_id)
         return review
 
 
@@ -281,9 +295,7 @@ class CouponListAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_queryset(self):
-        vendor_id = self.kwargs['vendor_id']
-        vendor = Vendor.objects.get(id=vendor_id)
-        coupon = Coupon.objects.filter(vendor=vendor)
+        coupon = Coupon.objects.filter(vendor__user=self.request.user)
         return coupon
 
 
@@ -296,7 +308,6 @@ class CouponCreateAPIView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         payload = request.data
 
-        vendor_id = payload.get("vendor_id")
         code = payload.get("code")
         discount_type = payload.get("discount_type")   
         discount_value = payload.get("discount_value") 
@@ -304,8 +315,9 @@ class CouponCreateAPIView(generics.CreateAPIView):
         valid_from = payload.get("valid_from")
         valid_to = payload.get("valid_to")
         active = payload.get("active")
+        usage_limit = int(usage_limit) if usage_limit not in [None, "", "null"] else None
 
-        vendor = Vendor.objects.get(id=vendor_id)
+        vendor = Vendor.objects.get(user=self.request.user)
 
         coupon = Coupon.objects.create(
             vendor=vendor,
@@ -326,12 +338,8 @@ class CouponDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_object(self):
-        vendor_id = self.kwargs['vendor_id']
         coupon_id = self.kwargs['coupon_id']
-
-        vendor = Vendor.objects.get(id=vendor_id)
-
-        coupon = Coupon.objects.get(vendor=vendor, id=coupon_id)
+        coupon = Coupon.objects.get(vendor__user=self.request.user, id=coupon_id)
         return coupon
 
 
@@ -342,12 +350,9 @@ class CouponStats(generics.ListAPIView):
 
     def get_queryset(self):
 
-        vendor_id = self.kwargs['vendor_id']
-        vendor = Vendor.objects.get(id=vendor_id)
 
-        total_coupons = Coupon.objects.filter(vendor=vendor).count()
-        active_coupons = Coupon.objects.filter(
-            vendor=vendor, active=True).count()
+        total_coupons = Coupon.objects.filter(vendor__user=self.request.user).count()
+        active_coupons = Coupon.objects.filter(vendor__user=self.request.user, active=True).count()
 
         return [{
             'total_coupons': total_coupons,
@@ -367,21 +372,16 @@ class NotificationUnSeenListAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_queryset(self):
-        vendor_id = self.kwargs['vendor_id']
-        vendor = Vendor.objects.get(id=vendor_id)
-        notifications = Notification.objects.filter(vendor=vendor, seen=False).order_by('seen')
+        notifications = Notification.objects.filter(vendor__user=self.request.user, seen=False).order_by('seen')
         return notifications
     
 class NotificationSeenListAPIView(generics.ListAPIView):
     serializer_class = NotificationSerializer
-    queryset = Notification.objects.all()
     authentication_classes = [JWTAuthentication] 
     permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_queryset(self):
-        vendor_id = self.kwargs['vendor_id']
-        vendor = Vendor.objects.get(id=vendor_id)
-        notifications = Notification.objects.filter(vendor=vendor, seen=True).order_by('seen')
+        notifications = Notification.objects.filter(vendor__user=self.request.user, seen=True).order_by('seen')
         return notifications
     
 class NotificationSummaryAPIView(generics.ListAPIView):
@@ -390,12 +390,10 @@ class NotificationSummaryAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_queryset(self):
-        vendor_id = self.kwargs['vendor_id']
-        vendor = Vendor.objects.get(id=vendor_id)
-
-        un_read_noti = Notification.objects.filter(vendor=vendor, seen=False).count()
-        read_noti = Notification.objects.filter(vendor=vendor, seen=True).count()
-        all_noti = Notification.objects.filter(vendor=vendor).count()
+    
+        un_read_noti = Notification.objects.filter(vendor__user=self.request.user, seen=False).count()
+        read_noti = Notification.objects.filter(vendor__user=self.request.user, seen=True).count()
+        all_noti = Notification.objects.filter(vendor__user=self.request.user).count()
 
         return [{
             'un_read_noti': un_read_noti,
@@ -415,10 +413,8 @@ class NotificationMarkAsSeen(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_object(self):
-        vendor_id = self.kwargs['vendor_id']
         noti_id = self.kwargs['noti_id']
-        vendor = Vendor.objects.get(id=vendor_id)
-        notification = Notification.objects.get(vendor=vendor, id=noti_id)
+        notification = Notification.objects.get(vendor__user=self.request.user, id=noti_id)
         notification.seen = True
         notification.save()
         return notification
@@ -567,11 +563,8 @@ class ProductUpdateView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_object(self):
-        vendor_id = self.kwargs['vendor_id']
         product_pid = self.kwargs['product_pid']
-
-        vendor = Vendor.objects.get(id=vendor_id)
-        product = Product.objects.get(vendor=vendor, pid=product_pid)
+        product = Product.objects.get(vendor__user=self.request.user, pid=product_pid)
         return product
 
     @transaction.atomic
@@ -671,28 +664,22 @@ class ProductUpdateView(generics.RetrieveUpdateAPIView):
 
 
 class ProductDeleteView(generics.DestroyAPIView):
-    serializer_class =ProductVendorListSerializer #ProductAddSerializer
+    serializer_class =ProductVendorListSerializer 
     authentication_classes = [JWTAuthentication] 
     permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_queryset(self):
-        vendor_id = self.kwargs['vendor_id']
-        vendor = Vendor.objects.get(id=vendor_id)
-        products = Product.objects.filter(vendor=vendor)
+        products = Product.objects.filter(vendor__user=self.request.user)
         return products
     
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['request'] = self.request
-        print(f"request:   {context}")
         return context
 
     def get_object(self):
-        vendor_id = self.kwargs['vendor_id']
         product_pid = self.kwargs['product_pid']
-
-        vendor = Vendor.objects.get(id=vendor_id)
-        product = Product.objects.get(pid=product_pid, vendor=vendor)
+        product = Product.objects.get(pid=product_pid, vendor__user=self.request.user)
         return product
     def get_complete_image_url(self, image_path):
         # Assuming BASE_URL is defined in your Django settings
@@ -763,12 +750,8 @@ class ProductDetailUpdate(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_object(self):
-        vendor_id = self.kwargs['vendor_id']
-        product_pid = self.kwargs['product_pid']
-        
-
-        vendor = Vendor.objects.get(id=vendor_id)
-        product = Product.objects.get(vendor=vendor, pid=product_pid)
+        product_pid = self.kwargs['product_pid']        
+        product = Product.objects.get(vendor__user=self.request.user, pid=product_pid)
         return product
 
     def update(self, request, *args, **kwargs):
@@ -803,12 +786,10 @@ class GalleryUpdateView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_object(self):
-        vendor_id = self.kwargs['vendor_id']
         product_pid = self.kwargs['product_pid']
         gallery_gid = self.request.data.get('gallery_gid')
 
-        vendor = Vendor.objects.get(id=vendor_id)
-        product = Product.objects.get(vendor=vendor, pid=product_pid)
+        product = Product.objects.get(vendor__user=self.request.user, pid=product_pid)
        
         if gallery_gid:
             try:
@@ -876,12 +857,10 @@ class ColorUpdateView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_object(self):
-        vendor_id = self.kwargs['vendor_id']
         product_pid = self.kwargs['product_pid']
         color_cid = self.request.data.get('color_cid')
 
-        vendor = Vendor.objects.get(id=vendor_id)
-        product = Product.objects.get(vendor=vendor, pid=product_pid)
+        product = Product.objects.get(vendor__user=self.request.user, pid=product_pid)
        
         if color_cid:
             try:
@@ -918,12 +897,9 @@ class SpecificationUpdateView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_object(self):
-        vendor_id = self.kwargs['vendor_id']
         product_pid = self.kwargs['product_pid']
         spid = self.request.data.get('spid')
-
-        vendor = Vendor.objects.get(id=vendor_id)
-        product = Product.objects.get(vendor=vendor, pid=product_pid)
+        product = Product.objects.get(vendor__user=self.request.user, pid=product_pid)
        
         if spid:
             try:
@@ -958,12 +934,10 @@ class SizeUpdateView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_object(self):
-        vendor_id = self.kwargs['vendor_id']
         product_pid = self.kwargs['product_pid']
         sid = self.request.data.get('sid')
 
-        vendor = Vendor.objects.get(id=vendor_id)
-        product = Product.objects.get(vendor=vendor, pid=product_pid)
+        product = Product.objects.get(vendor__user=self.request.user, pid=product_pid)
        
         if sid:
             try:
@@ -1000,20 +974,16 @@ class SizeDeleteView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_object(self):
-        vendor_id = self.kwargs['vendor_id']
         product_pid = self.kwargs['product_pid']
         sid = self.request.data.get('sid')
 
-        vendor = Vendor.objects.get(id=vendor_id)
-        product = Product.objects.get(vendor=vendor, pid=product_pid)               
+        product = Product.objects.get(vendor__user=self.request.user, pid=product_pid)               
         size = Size.objects.get(product=product, sid=sid)
         return size
 
     def get_queryset(self):
-        vendor_id = self.kwargs['vendor_id']
         product_pid = self.kwargs['product_pid']
-        vendor = Vendor.objects.get(id=vendor_id)
-        product = Product.objects.get(vendor=vendor, pid=product_pid)               
+        product = Product.objects.get(vendor__user=self.request.user, pid=product_pid)               
         size = Size.objects.filter(product=product)
         return size
         
@@ -1045,19 +1015,15 @@ class ColorDeleteView(generics.DestroyAPIView):
 
 
     def get_object(self):
-        vendor_id = self.kwargs['vendor_id']
         product_pid = self.kwargs['product_pid']
         color_cid = self.request.data.get('color_cid')
 
-        vendor = Vendor.objects.get(id=vendor_id)
-        product = Product.objects.get(vendor=vendor, pid=product_pid)               
+        product = Product.objects.get(vendor__user=self.request.user, pid=product_pid)               
         color = Color.objects.get(product=product, cid=color_cid)
         return color
     def get_queryset(self):
-        vendor_id = self.kwargs['vendor_id']
         product_pid = self.kwargs['product_pid']
-        vendor = Vendor.objects.get(id=vendor_id)
-        product = Product.objects.get(vendor=vendor, pid=product_pid)               
+        product = Product.objects.get(vendor__user=self.request.user, pid=product_pid)               
         color = Color.objects.filter(product=product)
         return color
     
@@ -1090,19 +1056,14 @@ class SpecificationDeleteView(generics.DestroyAPIView):
 
 
     def get_object(self):
-        vendor_id = self.kwargs['vendor_id']
         product_pid = self.kwargs['product_pid']
         spid = self.request.data.get('spid')
-
-        vendor = Vendor.objects.get(id=vendor_id)
-        product = Product.objects.get(vendor=vendor, pid=product_pid)               
+        product = Product.objects.get(vendor__user=self.request.user, pid=product_pid)               
         specification = Specification.objects.get(product=product, spid=spid)
         return specification
     def get_queryset(self):
-        vendor_id = self.kwargs['vendor_id']
         product_pid = self.kwargs['product_pid']
-        vendor = Vendor.objects.get(id=vendor_id)
-        product = Product.objects.get(vendor=vendor, pid=product_pid)               
+        product = Product.objects.get(vendor__user=self.request.user, pid=product_pid)               
         specification = Specification.objects.filter(product=product)
         return specification
     
@@ -1136,19 +1097,14 @@ class GalleryDeleteView(generics.DestroyAPIView):
 
 
     def get_object(self):
-        vendor_id = self.kwargs['vendor_id']
         product_pid = self.kwargs['product_pid']
         gallery_gid = self.request.data.get('gallery_gid')
-
-        vendor = Vendor.objects.get(id=vendor_id)
-        product = Product.objects.get(vendor=vendor, pid=product_pid)               
+        product = Product.objects.get(vendor__user=self.request.user, pid=product_pid)               
         gallery = Gallery.objects.get(product=product, gid=gallery_gid)
         return gallery
     def get_queryset(self):
-        vendor_id = self.kwargs['vendor_id']
         product_pid = self.kwargs['product_pid']
-        vendor = Vendor.objects.get(id=vendor_id)
-        product = Product.objects.get(vendor=vendor, pid=product_pid)               
+        product = Product.objects.get(vendor__user=self.request.user, pid=product_pid)               
         gallery = Gallery.objects.filter(product=product)
         return gallery
     

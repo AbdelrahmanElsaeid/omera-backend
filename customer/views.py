@@ -1,17 +1,14 @@
 
-from django.shortcuts import render,redirect
-from store.models import Category,Product,Cart,Tax,CartOrder,CartOrderItem,Coupon,Notification,Review,Wishlist
-from store.serializer import CartSerializer, ProductDetailSerializer,CategorySerializer,CartOrderSerializer,WishlistListSerializer,NotificationSerializer,ReviewSerializer,WishlistSerializer
+from store.models import Product,CartOrder,Notification,Wishlist
+from store.serializer import  CartOrderSerializer,WishlistListSerializer,NotificationSerializer
 from rest_framework import generics,status
-from rest_framework.permissions import AllowAny 
 from userauths.models import User
-from decimal import Decimal
 from rest_framework.response import Response
 from django.http import Http404
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 
-from django.db.models import F, FloatField, ExpressionWrapper
+from django.db.models import F, FloatField, ExpressionWrapper,Q
 from django.db.models.functions import Coalesce
 from django.utils.translation import gettext as _
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -24,10 +21,8 @@ class OrderAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        user_id =self.request.user.id #self.kwargs['user_id']
-        user = User.objects.get(id=user_id)
-
-        orders = CartOrder.objects.filter(buyer=user, payment_status = "paid")
+        user_id =self.request.user.id 
+        orders = CartOrder.objects.filter( Q(payment_status='cash') | Q(payment_status='paid'),buyer=user_id)
 
         return orders
     
@@ -37,11 +32,10 @@ class OrderDetailAPIView(generics.RetrieveAPIView):
     authentication_classes = [JWTAuthentication] 
     permission_classes = [IsAuthenticated]
     def get_object(self):
-        user_id = self.request.user.id #self.kwargs['user_id']
+        user_id = self.request.user.id 
         order_oid = self.kwargs['order_oid']
-        user = User.objects.get(id=user_id)
 
-        orders = CartOrder.objects.get(buyer=user,oid=order_oid, payment_status = "paid")
+        orders = CartOrder.objects.get(Q(payment_status='cash') | Q(payment_status='paid'),buyer=user_id,oid=order_oid)
 
         return orders    
     
