@@ -15,6 +15,8 @@ from django.db.models import Q,Count
 from django.http import Http404
 from django.utils.translation import get_language
 from django.utils.translation import gettext as _
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.permissions import IsAuthenticated
 
 
 # Create your views here.
@@ -268,14 +270,15 @@ class ReviewListAPIView(generics.ListCreateAPIView):
 class CartAPIView(generics.ListCreateAPIView):
     queryset=Cart.objects.all()
     serializer_class=CartSerializer
-    permission_classes=[AllowAny]  
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated] 
 
 
     def create(self, request, *args, **kwargs):
-        payload=request.data 
+        payload=request.data
 
         product_id=payload['product_id']
-        user_id=payload['user_id']
+        user_id=request.user.id #payload['user_id']
         qty=payload['qty']
         price=payload['price']
         currency=payload['currency']
@@ -355,12 +358,14 @@ class CartAPIView(generics.ListCreateAPIView):
 class CartListView(generics.ListAPIView):
     serializer_class=CartSerializer
     queryset= Cart.objects.all()
-    permission_classes=[AllowAny,]
+    # permission_classes=[AllowAny,]
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated]
 
 
     def get_queryset(self):
         cart_id = self.kwargs['cart_id']
-        user_id = self.kwargs.get('user_id')
+        user_id = self.request.user.id #self.kwargs.get('user_id')
 
 
         if user_id is not None:
@@ -374,12 +379,13 @@ class CartListView(generics.ListAPIView):
 class CartDetailView(generics.RetrieveAPIView):
     serializer_class=CartSerializer
     queryset= Cart.objects.all()
-    permission_classes=[AllowAny,]
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated]
 
 
     def get_queryset(self):
         cart_id = self.kwargs['cart_id']
-        user_id = self.kwargs.get('user_id')
+        user_id =self.request.user.id #self.kwargs.get('user_id')
 
 
         if user_id is not None:
@@ -436,9 +442,11 @@ class CartDetailView(generics.RetrieveAPIView):
 class CartItemDeleteAPIView(generics.DestroyAPIView):
     serializer_class=CartSerializer
     lookup_field='cart_id'
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated]
 
     def get_object(self, *args, **kwargs):
-        user_id = self.kwargs.get('user_id')
+        user_id = self.request.user.id #self.kwargs.get('user_id')
         item_id = self.kwargs['item_id']
         cart_id = self.kwargs['cart_id']
 
@@ -461,7 +469,8 @@ class CartItemDeleteAPIView(generics.DestroyAPIView):
 class CreateOrderAPIView(generics.CreateAPIView):
     serializer_class = CartOrderSerializer  
     queryset = CartOrder.objects.all()
-    permission_classes= [AllowAny,]  
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated]  
 
 
     def create(self, request, *args, **kwargs):
@@ -477,7 +486,7 @@ class CreateOrderAPIView(generics.CreateAPIView):
         # email = payload['email'] 
 
         cart_id = payload['cart_id']
-        user_id = payload['user_id']
+        user_id = self.request.user.id#payload['user_id']
 
         cart_order_id=payload['cart_id']
         print(f"user id ======== {user_id}")
@@ -575,51 +584,63 @@ class CheckoutView(generics.RetrieveAPIView):
 
 
 class CouponAPIView(generics.CreateAPIView):
-    serializer_class= CouponSerializer
+    serializer_class = CouponSerializer
     queryset = Coupon.objects.all()
-    permission_classes = [AllowAny,]
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated] 
 
-
-
-
-    def create(self,request):
+    def post(self, request, *args, **kwargs):
         payload = request.data
 
-        order_oid = payload['order_oid']
-        coupon_code = payload['coupon_code']
+        order_oid = payload.get('order_oid')
+        coupon_code = payload.get('coupon_code')
+        user = request.user if request.user.is_authenticated else None
 
+        try:
+            order = CartOrder.objects.get(oid=order_oid)
+        except CartOrder.DoesNotExist:
+            return Response({"message": "Order Does Not Exist", "icon": "error"}, status=status.HTTP_404_NOT_FOUND)
 
-        order = CartOrder.objects.get(oid=order_oid)
         coupon = Coupon.objects.filter(code=coupon_code).first()
+        if not coupon:
+            return Response({"message": "Coupon Does Not Exist", "icon": "error"}, status=status.HTTP_404_NOT_FOUND)
 
-        if coupon:
-            order_items = CartOrderItem.objects.filter(order=order, vendor=coupon.vendor)
+        # check validity
+        if not coupon.is_valid(user):
+            return Response({"message": "Coupon Is Not Valid", "icon": "error"}, status=status.HTTP_400_BAD_REQUEST)
 
-            if order_items:
-                for i in order_items:
-                    if not coupon in i.coupon.all():
-                        discount = i.total * coupon.discount / 100
+        order_items = CartOrderItem.objects.filter(order=order, vendor=coupon.vendor)
+        if not order_items.exists():
+            return Response({"message": "Order Item Does Not Exist For This Vendor", "icon": "error"}, status=status.HTTP_404_NOT_FOUND)
 
-                        i.total -= discount
-                        i.sub_total -= discount
-                        i.coupon.add(coupon)
-                        i.saved += discount
+        applied = False
+        for item in order_items:
+            if coupon not in item.coupon.all():
+                old_total = item.total
+                new_total = coupon.apply_discount(item.total)
+                discount = old_total - new_total
 
-                        order.total -= discount
-                        order.sub_total -= discount
-                        order.saved -= discount
+                item.total = new_total
+                item.sub_total = max(item.sub_total - discount, 0)
+                item.saved += discount
+                item.coupon.add(coupon)
+                item.save()
 
-                        i.save()
-                        order.save()
+                order.total = max(order.total - discount, 0)
+                order.sub_total = max(order.sub_total - discount, 0)
+                order.saved += discount
+                applied = True
 
-                        return Response({"message":"Coupon Activated", "icon":"success"}, status=status.HTTP_200_OK)
-                    else:
-                        return Response({"message":"Coupon Already Activated", "icon":"warning"}, status=status.HTTP_200_OK)
-            else:
-                return Response({"message":"Order Item Does Not Exists", "icon":"error"}, status=status.HTTP_200_OK)
+        if applied:
+            coupon.used_count += 1
+            if user:
+                coupon.used_by.add(user)
+            coupon.save()
+            order.save()
+
+            return Response({"message": "Coupon Activated", "icon": "success"}, status=status.HTTP_200_OK)
         else:
-            return Response({"message":"Coupon Does Not Exists", "icon":"error"}, status=status.HTTP_200_OK)
-    
+            return Response({"message": "Coupon Already Applied To Items", "icon": "warning"}, status=status.HTTP_200_OK)
 
 
 

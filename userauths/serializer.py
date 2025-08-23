@@ -1,14 +1,14 @@
-from rest_framework import serializers
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from rest_framework import generics, status
-from rest_framework.response import Response
-from django.db import IntegrityError
 from django.conf import settings
-from .models import User, Profile
-from django.contrib.auth.password_validation import validate_password
-from rest_framework_simplejwt.exceptions import AuthenticationFailed
 from django.contrib.auth import authenticate
+from django.contrib.auth.password_validation import validate_password
+from django.db import IntegrityError
 from django.utils.translation import gettext as _
+from rest_framework import generics, serializers, status
+from rest_framework.response import Response
+from rest_framework_simplejwt.exceptions import AuthenticationFailed
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+from .models import Profile, User
 
 
 class LoginSerializer(serializers.Serializer):
@@ -34,23 +34,17 @@ class LoginSerializer(serializers.Serializer):
     #     return attrs
 
 
-class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
-    def get_token(cls,user):
+    def get_token(cls, user):
         token = super().get_token(user)
 
         token['full_name'] = user.full_name
         token['email'] = user.email
         token['username'] = user.username
+        token['vendor_id'] = user.vendor.id if hasattr(user, 'vendor') else 0
 
-        try:
-            token['vendor_id'] = user.vendor.id
-        except:
-            token['vendor_id'] = 0
-
-        return token 
-    
-    
+        return token    
     
     
     

@@ -13,6 +13,8 @@ from rest_framework.views import APIView
 
 from store.models import Cart, CartOrder, CartOrderItem, Notification
 from store.serializer import CartOrderSerializer
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.permissions import IsAuthenticated
 
 API_KEY = os.environ.get('PAYMOB_API_KEY')
 FRONTEND_URL = os.environ.get('FRONTEND_BASE_URL')
@@ -257,7 +259,9 @@ class CheckPaymentView(APIView):
 
 class CheckPaymentView(APIView):
     serializer_class = CartOrderSerializer
-    permission_classes = [AllowAny]
+    # permission_classes = [AllowAny]
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
         order_oid = self.kwargs['order_oid']
@@ -269,6 +273,9 @@ class CheckPaymentView(APIView):
 
 
 class PaymentCashView(APIView):
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated]
+
     def post(self, request, *args, **kwargs):
         order_oid = self.kwargs['order_oid']
         try:

@@ -1,21 +1,19 @@
 from django.urls import path
 
 from userauths import views as userauths_views
-from rest_framework_simplejwt.views import TokenRefreshView
 from store import views as store_views
 from customer import views as customer_views
 from vendor import views as vendor_views
 from store.paymob_payment import CheckPaymentView, PaymentCashView, PaymobPaymentView, PaymobCallbackView
 
 urlpatterns = [
-    path('user/token/', userauths_views.MyTokenOptainPairView.as_view()),
-    path('user/token/refresh/', TokenRefreshView.as_view()),
+    path('user/login/', userauths_views.CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('user/token/refresh/', userauths_views.CustomTokenRefreshView.as_view()),
     path('user/register/', userauths_views.RegisterView.as_view()),
     path('user/password-reset/', userauths_views.PasswordRestEmailVerify.as_view()),
     path('user/password-change/', userauths_views.PasswordChangeView.as_view()),
     path('user/profile/<user_id>/', userauths_views.ProfileView.as_view()),
 
-    path('user/login/', userauths_views.LoginView.as_view()),
     path('user/csr/', userauths_views.get_csrf_token),
 
 

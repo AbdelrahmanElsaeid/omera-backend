@@ -1,22 +1,29 @@
-from django.shortcuts import render
-from django.conf import settings
-from .models import User, Profile
-from rest_framework_simplejwt.views import TokenObtainPairView
-from .serializer import MyTokenObtainPairSerializer ,RegisterSerializer, UserSerializer,ProfileSerializer,LoginSerializer
-from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated,AllowAny
-from rest_framework.response import Response
+import datetime
 import random
+
+import jwt
 import shortuuid
-from django.core.mail import send_mail
-from django.urls import reverse
-from rest_framework_simplejwt.exceptions import AuthenticationFailed
+from django.conf import settings
 from django.contrib.auth import login, logout
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.views import APIView
-import jwt, datetime
-from django.views.decorators.csrf import get_token
+from django.core.mail import send_mail
 from django.http import JsonResponse
+from django.urls import reverse
+from django.views.decorators.csrf import get_token
+from rest_framework import generics, status
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import AuthenticationFailed
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
+from datetime import timedelta
+from .models import Profile, User
+from .serializer import (CustomTokenObtainPairSerializer, LoginSerializer,
+                         ProfileSerializer, RegisterSerializer, UserSerializer)
+from rest_framework_simplejwt.views import TokenRefreshView
+from django.utils.translation import gettext as _
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
 #from django.utils.translation import gettext as _
 
 
@@ -66,37 +73,50 @@ class LoginView(APIView):
 
 
 
-
-
-
-
-
-class MyTokenOptainPairView(TokenObtainPairView):
-    serializer_class = MyTokenObtainPairSerializer
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.user
         tokens = serializer.validated_data
-        response_data = {
-            'tokens': tokens,
-            'user': {
-                'id': user.id,
-                'full_name': user.full_name,
-                'email': user.email,
-                'username': user.username,
-                # Add more user information as needed
-            }
-        }
+        access_token = tokens.get("access")
+        refresh_token = tokens.get("refresh")
+
+        response = Response({"access": access_token,}, status=status.HTTP_200_OK)
+
+        cookie_max_age = int(timedelta(days=7).total_seconds()) 
+        response.set_cookie(
+            key='refresh_token',
+            value=refresh_token,
+            max_age=cookie_max_age,
+            secure=True, httponly=True, samesite='Strict'
+            )
+        # response.set_cookie(
+        #     key='refresh_token',
+        #     value=refresh_token,
+        #     max_age=cookie_max_age,
+        #     secure=False, httponly=True,
+        #     samesite='Lax',
+        #     path='/',
+        #     )
+            
+
+        return response
+
+class CustomTokenRefreshView(TokenRefreshView):
+    def post(self, request, *args, **kwargs):
+        refresh_token = request.COOKIES.get('refresh_token')        
+        if refresh_token:
+            request.data['refresh'] = refresh_token        
+        return super().post(request, *args, **kwargs)
+
+
+
 
     
-        return Response(response_data)
-        #return Response(response_data)
 
-    
-from django.utils.translation import gettext as _
-   
+
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = [AllowAny,]
@@ -237,10 +257,12 @@ class PasswordChangeView(generics.CreateAPIView):
 
 class ProfileView(generics.RetrieveUpdateAPIView):
     serializer_class=ProfileSerializer
-    permission_classes = [AllowAny,]
+    # permission_classes = [AllowAny,]
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated]
 
     def get_object(self):
-        user_id = self.kwargs['user_id']
+        user_id = self.request.user.id #self.kwargs['user_id']
 
         user = User.objects.get(id=user_id)
         profile = Profile.objects.get(user=user)

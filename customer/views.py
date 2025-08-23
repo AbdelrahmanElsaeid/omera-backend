@@ -14,15 +14,17 @@ from django.shortcuts import get_object_or_404
 from django.db.models import F, FloatField, ExpressionWrapper
 from django.db.models.functions import Coalesce
 from django.utils.translation import gettext as _
-
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.permissions import IsAuthenticated
 # Create your views here.
 
 class OrderAPIView(generics.ListAPIView):
     serializer_class=CartOrderSerializer
-    permission_classes=[AllowAny,]
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        user_id = self.kwargs['user_id']
+        user_id =self.request.user.id #self.kwargs['user_id']
         user = User.objects.get(id=user_id)
 
         orders = CartOrder.objects.filter(buyer=user, payment_status = "paid")
@@ -32,10 +34,10 @@ class OrderAPIView(generics.ListAPIView):
 
 class OrderDetailAPIView(generics.RetrieveAPIView):
     serializer_class=CartOrderSerializer
-    permission_classes=[AllowAny,]
-
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated]
     def get_object(self):
-        user_id = self.kwargs['user_id']
+        user_id = self.request.user.id #self.kwargs['user_id']
         order_oid = self.kwargs['order_oid']
         user = User.objects.get(id=user_id)
 
@@ -48,7 +50,8 @@ class OrderDetailAPIView(generics.RetrieveAPIView):
 
 class WishlistCreateAPIView(generics.CreateAPIView):
     serializer_class = WishlistListSerializer
-    permission_classes = (AllowAny, )
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated]
 
     def get_user_wishlist_product_ids(self, user):
         user_wishlist = Wishlist.objects.filter(user=user)
@@ -70,7 +73,7 @@ class WishlistCreateAPIView(generics.CreateAPIView):
     def create(self, request):
         payload = request.data 
         product_id = payload.get('product_id')
-        user_id = payload.get('user_id')
+        user_id = self.request.user.id #payload.get('user_id')
 
         if  product_id is not None:
 
@@ -117,11 +120,12 @@ class WishlistCreateAPIView(generics.CreateAPIView):
 
 class WishlistAPIView(generics.ListAPIView):
     serializer_class = WishlistListSerializer
-    permission_classes = (AllowAny, )
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated]
 
    
     def get_queryset(self):
-            user_id = self.kwargs['user_id']
+            user_id = self.request.user.id #self.kwargs['user_id']
             currency_code = self.kwargs.get('currency')
 
             user = User.objects.get(id=user_id)
@@ -155,10 +159,11 @@ class WishlistAPIView(generics.ListAPIView):
 
 class NotificationListAPIView(generics.ListAPIView):
     serializer_class = NotificationSerializer
-    permission_classes=[AllowAny,]
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        user_id = self.kwargs['user_id']
+        user_id = self.request.user.id #self.kwargs['user_id']
         user = User.objects.get(id=user_id)
 
         notif = Notification.objects.filter(user=user, seen=False)
@@ -169,10 +174,10 @@ class NotificationListAPIView(generics.ListAPIView):
 
 class MarkCustomerNotificationAsSeen(generics.RetrieveAPIView):
     serializer_class = NotificationSerializer
-    permission_classes=[AllowAny,]
-
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated]
     def get_object(self):
-        user_id = self.kwargs['user_id']
+        user_id = self.request.user.id #self.kwargs['user_id']
         noti_id = self.kwargs['noti_id']
 
         user = User.objects.get(id=user_id)

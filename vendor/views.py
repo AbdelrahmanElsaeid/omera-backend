@@ -1,5 +1,8 @@
 from django.shortcuts import get_object_or_404, render
 
+from userauths.permissions import IsVendor
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.permissions import IsAuthenticated
 # Create your views here.
 from .models import Vendor
 from store.serializer import SummarySerializer, ProductSerializer,CartOrderItemSerializer,CartOrderSerializer, EarningSerializer, ReviewSerializer,CouponSerializer,CouponSummarySerializer,NotificationSerializer,NotificationSummarySerializer,VendorSerializer, ColorSerializer,SpecificationSerializer,SizeSerializer,GallerySerializer,ProductAddSerializer,ColorAddSerializer,SizeAddSerializer,SpecificationAddSerializer,ProductListSerializer,ProductVendorListSerializer,ColorUpdateSerializer,SizeUpdateSerializer,SpecificationUpdateSerializer,CartOrderItemVendorSerializer, CombinedTotalsSerializer, CartOrderVendorAllOrdersSerializer
@@ -27,7 +30,8 @@ from django.db.models import Prefetch,Q
 
 class DashboardStatsAPIView(generics.ListAPIView):
     serializer_class = SummarySerializer
-    permission_classes=[AllowAny,]
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor]
 
     def get_queryset(self):
         vendor_id = self.kwargs['vendor_id']
@@ -74,7 +78,8 @@ def MonthlyProductChartAPIView(request, vendor_id):
 
 class ProductsAPIView(generics.ListAPIView):
     serializer_class = ProductVendorListSerializer
-    permission_classes = (AllowAny,)
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor]
 
     def get_queryset(self):
         vendor_id = self.kwargs['vendor_id']
@@ -85,7 +90,9 @@ class ProductsAPIView(generics.ListAPIView):
 
 class OrdersAPIView(generics.ListAPIView):
     serializer_class = CartOrderVendorAllOrdersSerializer
-    permission_classes = (AllowAny,)
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor]
+
 
     def get_queryset(self):
         vendor_id = self.kwargs['vendor_id']
@@ -105,7 +112,8 @@ class OrdersAPIView(generics.ListAPIView):
 from django.db.models import Sum, F
 class OrderDetailAPIView(generics.ListAPIView):
     serializer_class = CartOrderItemVendorSerializer
-    permission_classes = [AllowAny,]
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor]
 
     def get_queryset(self):
         vendor_id = self.kwargs['vendor_id']
@@ -158,7 +166,8 @@ class OrderDetailAPIView(generics.ListAPIView):
 
 class RevenueAPIView(generics.ListAPIView):
     serializer_class = CartOrderItemSerializer
-    permission_classes = (AllowAny,)
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor]
 
     def get_queryset(self):
         vendor_id = self.kwargs['vendor_id']
@@ -172,7 +181,8 @@ class RevenueAPIView(generics.ListAPIView):
 
 class FilterProductsAPIView(generics.ListAPIView):
     serializer_class =ProductVendorListSerializer #ProductSerializer
-    permission_classes = (AllowAny,)
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor]
 
     def get_queryset(self):
         vendor_id = self.kwargs['vendor_id']
@@ -192,7 +202,8 @@ class FilterProductsAPIView(generics.ListAPIView):
 
 class EarningAPIView(generics.ListAPIView):
     serializer_class= EarningSerializer
-    permission_classes= [AllowAny,]  
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor]  
 
     def get_queryset(self):
         vendor_id = self.kwargs['vendor_id']
@@ -238,7 +249,8 @@ def MonthlyEarningTracker(request, vendor_id):
 
 class ReviewsListAPIView(generics.ListAPIView):
     serializer_class = ReviewSerializer
-    permission_classes = (AllowAny,)
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor]
 
     def get_queryset(self):
         vendor_id = self.kwargs['vendor_id']
@@ -250,7 +262,8 @@ class ReviewsListAPIView(generics.ListAPIView):
 
 class ReviewsDetailAPIView(generics.RetrieveUpdateAPIView):
     serializer_class = ReviewSerializer
-    permission_classes = (AllowAny,)
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor]
 
     def get_object(self):
         vendor_id = self.kwargs['vendor_id']
@@ -264,8 +277,8 @@ class ReviewsDetailAPIView(generics.RetrieveUpdateAPIView):
 
 class CouponListAPIView(generics.ListAPIView):
     serializer_class = CouponSerializer
-    queryset = Coupon.objects.all()
-    permission_classes = (AllowAny, )
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_queryset(self):
         vendor_id = self.kwargs['vendor_id']
@@ -277,35 +290,40 @@ class CouponListAPIView(generics.ListAPIView):
 class CouponCreateAPIView(generics.CreateAPIView):
     serializer_class = CouponSerializer
     queryset = Coupon.objects.all()
-    permission_classes = (AllowAny, )
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
     def create(self, request, *args, **kwargs):
         payload = request.data
 
-        vendor_id = payload['vendor_id']
-        code = payload['code']
-        discount = payload['discount']
-        active = payload['active']
-
-        print("vendor_id ======", vendor_id)
-        print("code ======", code)
-        print("discount ======", discount)
-        print("active ======", active)
+        vendor_id = payload.get("vendor_id")
+        code = payload.get("code")
+        discount_type = payload.get("discount_type")   
+        discount_value = payload.get("discount_value") 
+        usage_limit = payload.get("usage_limit")
+        valid_from = payload.get("valid_from")
+        valid_to = payload.get("valid_to")
+        active = payload.get("active")
 
         vendor = Vendor.objects.get(id=vendor_id)
+
         coupon = Coupon.objects.create(
             vendor=vendor,
             code=code,
-            discount=discount,
-            active=(active.lower() == "true")
+            discount_type=discount_type,
+            discount_value=discount_value,
+            usage_limit=usage_limit,
+            valid_from=valid_from,
+            valid_to=valid_to,
+            active=(str(active).lower() == "true")
         )
 
         return Response({"message": _("Coupon Created Successfully.")}, status=status.HTTP_201_CREATED)
 
-
 class CouponDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CouponSerializer
-    permission_classes = (AllowAny, )
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_object(self):
         vendor_id = self.kwargs['vendor_id']
@@ -319,6 +337,8 @@ class CouponDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
 
 class CouponStats(generics.ListAPIView):
     serializer_class = CouponSummarySerializer
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_queryset(self):
 
@@ -343,7 +363,8 @@ class CouponStats(generics.ListAPIView):
 class NotificationUnSeenListAPIView(generics.ListAPIView):
     serializer_class = NotificationSerializer
     queryset = Notification.objects.all()
-    permission_classes = (AllowAny, )
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_queryset(self):
         vendor_id = self.kwargs['vendor_id']
@@ -354,7 +375,8 @@ class NotificationUnSeenListAPIView(generics.ListAPIView):
 class NotificationSeenListAPIView(generics.ListAPIView):
     serializer_class = NotificationSerializer
     queryset = Notification.objects.all()
-    permission_classes = (AllowAny, )
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_queryset(self):
         vendor_id = self.kwargs['vendor_id']
@@ -364,6 +386,8 @@ class NotificationSeenListAPIView(generics.ListAPIView):
     
 class NotificationSummaryAPIView(generics.ListAPIView):
     serializer_class = NotificationSummarySerializer
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_queryset(self):
         vendor_id = self.kwargs['vendor_id']
@@ -387,7 +411,8 @@ class NotificationSummaryAPIView(generics.ListAPIView):
     
 class NotificationMarkAsSeen(generics.RetrieveUpdateAPIView):
     serializer_class = NotificationSerializer
-    permission_classes = (AllowAny, )
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_object(self):
         vendor_id = self.kwargs['vendor_id']
@@ -405,20 +430,23 @@ class NotificationMarkAsSeen(generics.RetrieveUpdateAPIView):
 class VendorProfileUpdateView(generics.RetrieveUpdateAPIView):
     queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
-    permission_classes = (AllowAny, )
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
 
 
 class ShopUpdateView(generics.RetrieveUpdateAPIView):
     queryset = Vendor.objects.all()
     serializer_class = VendorSerializer
-    permission_classes = (AllowAny, )      
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor]       
 
 
 class ShopAPIView(generics.RetrieveUpdateAPIView):
     queryset = Product.objects.all()
     serializer_class = VendorSerializer
-    permission_classes = (AllowAny, )
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_object(self):
         vendor_slug = self.kwargs['vendor_slug']
@@ -429,7 +457,8 @@ class ShopAPIView(generics.RetrieveUpdateAPIView):
 
 class ShopProductsAPIView(generics.ListAPIView):
     serializer_class = ProductSerializer
-    permission_classes = (AllowAny,)
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_queryset(self):
         vendor_slug = self.kwargs['vendor_slug']
@@ -447,6 +476,8 @@ class ShopProductsAPIView(generics.ListAPIView):
 class ProductCreateView(generics.CreateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductAddSerializer
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
     @transaction.atomic
     def perform_create(self, serializer):
@@ -532,7 +563,8 @@ class ProductCreateView(generics.CreateAPIView):
 class ProductUpdateView(generics.RetrieveUpdateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductAddSerializer
-    permission_classes = (AllowAny, )
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_object(self):
         vendor_id = self.kwargs['vendor_id']
@@ -640,6 +672,8 @@ class ProductUpdateView(generics.RetrieveUpdateAPIView):
 
 class ProductDeleteView(generics.DestroyAPIView):
     serializer_class =ProductVendorListSerializer #ProductAddSerializer
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_queryset(self):
         vendor_id = self.kwargs['vendor_id']
@@ -725,7 +759,8 @@ class ProductDeleteView(generics.DestroyAPIView):
 class ProductDetailUpdate(generics.UpdateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductAddSerializer
-    permission_classes = (AllowAny, )
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_object(self):
         vendor_id = self.kwargs['vendor_id']
@@ -764,7 +799,8 @@ class ProductDetailUpdate(generics.UpdateAPIView):
 class GalleryUpdateView(generics.UpdateAPIView):
     queryset = Gallery.objects.all()
     serializer_class = GallerySerializer
-    permission_classes = (AllowAny, )
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_object(self):
         vendor_id = self.kwargs['vendor_id']
@@ -836,7 +872,8 @@ class GalleryUpdateView(generics.UpdateAPIView):
 class ColorUpdateView(generics.UpdateAPIView):
     queryset = Color.objects.all()
     serializer_class = ColorUpdateSerializer
-    permission_classes = (AllowAny, )
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_object(self):
         vendor_id = self.kwargs['vendor_id']
@@ -877,7 +914,8 @@ class ColorUpdateView(generics.UpdateAPIView):
 class SpecificationUpdateView(generics.UpdateAPIView):
     queryset = Specification.objects.all()
     serializer_class = SpecificationUpdateSerializer
-    permission_classes = (AllowAny, )
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_object(self):
         vendor_id = self.kwargs['vendor_id']
@@ -916,7 +954,8 @@ class SpecificationUpdateView(generics.UpdateAPIView):
 class SizeUpdateView(generics.UpdateAPIView):
     queryset = Size.objects.all()
     serializer_class = SizeUpdateSerializer
-    permission_classes = (AllowAny, )
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_object(self):
         vendor_id = self.kwargs['vendor_id']
@@ -957,8 +996,8 @@ class SizeUpdateView(generics.UpdateAPIView):
 class SizeDeleteView(generics.DestroyAPIView):
     queryset = Size.objects.all()
     serializer_class = SizeUpdateSerializer
-    permission_classes = (AllowAny, )
-
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
     def get_object(self):
         vendor_id = self.kwargs['vendor_id']
@@ -1001,7 +1040,8 @@ class SizeDeleteView(generics.DestroyAPIView):
 class ColorDeleteView(generics.DestroyAPIView):
     queryset = Color.objects.all()
     serializer_class = ColorUpdateSerializer
-    permission_classes = (AllowAny, )
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
 
     def get_object(self):
@@ -1045,7 +1085,8 @@ class ColorDeleteView(generics.DestroyAPIView):
 class SpecificationDeleteView(generics.DestroyAPIView):
     queryset = Specification.objects.all()
     serializer_class = SpecificationUpdateSerializer
-    permission_classes = (AllowAny, )
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
 
     def get_object(self):
@@ -1090,7 +1131,8 @@ class SpecificationDeleteView(generics.DestroyAPIView):
 class GalleryDeleteView(generics.DestroyAPIView):
     queryset = Gallery.objects.all()
     serializer_class = GallerySerializer
-    permission_classes = (AllowAny, )
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor] 
 
 
     def get_object(self):

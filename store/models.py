@@ -463,15 +463,52 @@ class Notification(models.Model):
 
 
 class Coupon(models.Model):
+    DISCOUNT_TYPE_CHOICES = (
+        ("percent", "Percentage"),
+        ("amount", "Fixed Amount"),
+    )
+    discount_type = models.CharField(
+        max_length=10, choices=DISCOUNT_TYPE_CHOICES, default="percent"
+    )
+    discount_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True, related_name="coupon_vendor")
     used_by = models.ManyToManyField(User, blank=True)
-    code = models.CharField(max_length=1000)
-    discount = models.IntegerField(default=1)
-    date = models.DateTimeField(auto_now_add=True)
+    code = models.CharField(max_length=50,unique=True)
+    valid_from = models.DateTimeField(default=timezone.now)
+    valid_to = models.DateTimeField(null=True, blank=True)
+    usage_limit = models.PositiveIntegerField(null=True, blank=True)
+    used_count = models.PositiveIntegerField(default=0,null=True, blank=True)
     active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
    
     def __str__(self):
-        return self.code        
+        return self.code 
+    
+    def is_valid(self, user=None):
+        """ Check if the coupon is valid for the given user """
+
+        now = timezone.now()
+        if not self.active:
+            return False
+        if self.valid_from and now < self.valid_from:
+            return False
+        if self.valid_to and now > self.valid_to:
+            return False
+        if self.usage_limit and self.used_count >= self.usage_limit:
+            return False
+        if user and self.used_by.filter(id=user.id).exists():
+            return False
+        return True
+
+    
+    
+    def apply_discount(self, total):
+        """ Apply the discount to the given total """
+        if self.discount_type == "percent":
+            discount = (total * self.discount_value) / 100
+        else:
+            discount = self.discount_value
+        return max(total - discount, 0)     
     
 
 
