@@ -289,6 +289,9 @@ class CartOrder(models.Model):
         ("Pending", _("Pending")),
         ("Fulfilled", _("Fulfilled")),
         ("Partially Fulfilled", _("Partially Fulfilled")),
+        ("Delivered", _("Delivered")),
+        ("Approved", _("Approved")),
+        ("On Delivery", _("On Delivery")),
         ("Cancelled", _("Cancelled")),
     )
     vendor = models.ManyToManyField(Vendor, blank=True)
@@ -484,21 +487,37 @@ class Coupon(models.Model):
     def __str__(self):
         return self.code 
     
-    def is_valid(self, user=None):
-        """ Check if the coupon is valid for the given user """
+    # def is_valid(self, user=None):
+    #     """ Check if the coupon is valid for the given user """
 
+    #     now = timezone.now()
+    #     if not self.active:
+    #         return False
+    #     if self.valid_from and now < self.valid_from:
+    #         return False
+    #     if self.valid_to and now > self.valid_to:
+    #         return False
+    #     if self.usage_limit and self.used_count >= self.usage_limit:
+    #         return False
+    #     if user and self.used_by.filter(id=user.id).exists():
+    #         return False
+    #     return True
+    def is_valid(self, user=None):
+        """Check if the coupon is valid for the given user, return (bool, reason)."""
         now = timezone.now()
+
         if not self.active:
-            return False
+            return False, "Coupon is not active"
         if self.valid_from and now < self.valid_from:
-            return False
+            return False, "Coupon is not yet valid"
         if self.valid_to and now > self.valid_to:
-            return False
+            return False, "Coupon has expired"
         if self.usage_limit and self.used_count >= self.usage_limit:
-            return False
+            return False, "Coupon usage limit reached"
         if user and self.used_by.filter(id=user.id).exists():
-            return False
-        return True
+            return False, "You have already used this coupon"
+
+        return True, "Coupon is valid"
 
     
     

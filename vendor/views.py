@@ -29,6 +29,7 @@ from store.serializer import (
     CartOrderItemSerializer,
     CartOrderItemVendorSerializer,
     CartOrderVendorAllOrdersSerializer,
+    ChangeOrderStatusSerializer,
     ColorAddSerializer,
     ColorSerializer,
     ColorUpdateSerializer,
@@ -147,8 +148,8 @@ class OrderDetailAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         order_oid = self.kwargs['order_oid']
-        order = CartOrder.objects.get(vendor__user=self.request.user, oid=order_oid)
-        querset = CartOrderItem.objects.select_related('product','product__category','vendor').prefetch_related('coupon').filter(order=order)
+        self.order = CartOrder.objects.get(vendor__user=self.request.user, oid=order_oid)
+        querset = CartOrderItem.objects.select_related('product','product__category','vendor').prefetch_related('coupon').filter(order=self.order)
         
         return querset
 
@@ -181,7 +182,8 @@ class OrderDetailAPIView(generics.ListAPIView):
         # Create response data
         data = {
             'orderitem': serializer.data,
-            'vendor_total': combined_totals_serializer.data
+            'vendor_total': combined_totals_serializer.data,
+            'order_status': self.order.order_status
         }
 
         return Response(data)
@@ -1132,7 +1134,16 @@ class GalleryDeleteView(generics.DestroyAPIView):
         }, status=status.HTTP_200_OK)   
                 
 
-        
+class ChangeOrderStatusView(generics.UpdateAPIView):
+    serializer_class = ChangeOrderStatusSerializer
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor]
+
+    def get_object(self):
+        order_oid = self.kwargs['order_oid']
+        user_id = self.request.user
+        order = CartOrder.objects.get(oid=order_oid, vendor__user=user_id)
+        return order
 
         
         

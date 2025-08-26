@@ -278,80 +278,69 @@ class CartAPIView(generics.ListCreateAPIView):
         payload=request.data
 
         product_id=payload['product_id']
-        user_id=request.user.id #payload['user_id']
+        user_id=request.user
         qty=payload['qty']
         price=payload['price']
         currency=payload['currency']
         shipping_amount=payload['shipping_amount']
-        country=payload['country']
         size=payload['size']
         color=payload['color']
         cart_id=payload['cart_id']
 
 
         product=Product.objects.get(id=product_id)
-
-        if user_id != "undefined":
-            user = User.objects.get(id=user_id)
-
-        else:
-            user = None 
-
-        tax = Tax.objects.filter(country=country).first()
-        if tax:
-            tax_rate = tax.rate /100
-        else:
+        if int(product.stock_qty)>=int(qty):       
             tax_rate = 0
+            cart = Cart.objects.filter(cart_id=cart_id, product=product).first()
 
-        cart = Cart.objects.filter(cart_id=cart_id, product=product).first()
-
-        if cart:
-            cart.user=user
-            cart.product=product
-            cart.qty=qty
-            cart.price=price
-            cart.currency=currency
-            cart.sub_total= Decimal(price) * int(qty)
-            cart.shipping_amount = Decimal(shipping_amount) * int(qty)
-            cart.tax_fee = int(qty) * Decimal(tax_rate)
-            cart.color=color
-            cart.size=size
-            cart.country=country
-            cart.cart_id=cart_id
+            if cart:
+                cart.user=user_id
+                cart.product=product
+                cart.qty=qty
+                cart.price=price
+                cart.currency=currency
+                cart.sub_total= Decimal(price) * int(qty)
+                cart.shipping_amount = Decimal(shipping_amount) * int(qty)
+                cart.tax_fee = int(qty) * Decimal(tax_rate)
+                cart.color=color
+                cart.size=size
+                cart.cart_id=cart_id
 
 
-            # service_fee_percentage = 10 / 100
-            service_fee_percentage = 0
+                # service_fee_percentage = 10 / 100
+                service_fee_percentage = 0
 
-            cart.service_fee = Decimal(service_fee_percentage)  * cart.sub_total
+                cart.service_fee = Decimal(service_fee_percentage)  * cart.sub_total
 
-            cart.total =cart.sub_total + cart.shipping_amount + cart.tax_fee
-            cart.save()
-            return Response({'message': _("Cart Updated Successfully")}, status=status.HTTP_200_OK)
+                cart.total =cart.sub_total + cart.shipping_amount + cart.tax_fee
+                cart.save()
+                return Response({'message': _("Cart Updated Successfully")}, status=status.HTTP_200_OK)
 
+            else:
+                cart=Cart()
+                cart.user=user_id
+                cart.product=product
+                cart.qty=qty
+                cart.price=price
+                cart.currency=currency
+                cart.sub_total= Decimal(price) * int(qty)
+                cart.shipping_amount = Decimal(shipping_amount) * int(qty)
+                cart.tax_fee = int(qty) * Decimal(tax_rate)
+                cart.color=color
+                cart.size=size
+                # cart.country=country
+                cart.cart_id=cart_id
+
+
+                # service_fee_percentage = 10 / 100
+                service_fee_percentage = 0
+                cart.service_fee = Decimal(service_fee_percentage) * cart.sub_total
+
+                cart.total =cart.sub_total + cart.shipping_amount + cart.tax_fee
+                cart.save()
+                return Response({'message': _("Cart Created Successfully")}, status=status.HTTP_201_CREATED)
         else:
-            cart=Cart()
-            cart.user=user
-            cart.product=product
-            cart.qty=qty
-            cart.price=price
-            cart.currency=currency
-            cart.sub_total= Decimal(price) * int(qty)
-            cart.shipping_amount = Decimal(shipping_amount) * int(qty)
-            cart.tax_fee = int(qty) * Decimal(tax_rate)
-            cart.color=color
-            cart.size=size
-            cart.country=country
-            cart.cart_id=cart_id
-
-
-            # service_fee_percentage = 10 / 100
-            service_fee_percentage = 0
-            cart.service_fee = Decimal(service_fee_percentage) * cart.sub_total
-
-            cart.total =cart.sub_total + cart.shipping_amount + cart.tax_fee
-            cart.save()
-            return Response({'message': _("Cart Created Successfully")}, status=status.HTTP_201_CREATED)
+            return Response({'message': _("Stock quantity is not available")}, status=status.HTTP_400_BAD_REQUEST)
 
 
 
@@ -606,8 +595,13 @@ class CouponAPIView(generics.CreateAPIView):
             return Response({"message": "Coupon Does Not Exist", "icon": "error"}, status=status.HTTP_404_NOT_FOUND)
 
         # check validity
-        if not coupon.is_valid(user):
-            return Response({"message": "Coupon Is Not Valid", "icon": "error"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        is_valid, reason = coupon.is_valid(user)
+        if not is_valid:
+            return Response(
+                {"message": reason, "icon": "error"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         order_items = CartOrderItem.objects.filter(order=order, vendor=coupon.vendor)
         if not order_items.exists():

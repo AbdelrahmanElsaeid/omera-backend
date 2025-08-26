@@ -294,6 +294,9 @@ class PaymentCashView(APIView):
                 #send notification to vendor
                 for o in order_items:
                     send_notification(vendor=o.vendor, order=order, order_item=o)
+                    # update stock
+                    o.product.stock_qty = o.product.stock_qty - o.qty
+                    o.product.save()
 
                 return Response(
                     {"message": "Payment successful. Order marked as cash on delivery."},

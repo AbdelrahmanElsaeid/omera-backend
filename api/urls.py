@@ -105,6 +105,7 @@ urlpatterns = [
     path('vendor-product-create/', vendor_views.ProductCreateView.as_view(), name='vendor-product-create'),
     path('vendor-product-update/<vendor_id>/<product_pid>/', vendor_views.ProductUpdateView.as_view(), name='vendor-product-update'),
     path('vendor-product-delete/<vendor_id>/<product_pid>/', vendor_views.ProductDeleteView.as_view(), name='vendor-product-delete'),
+    path('vendor-change-order-status/<order_oid>/', vendor_views.ChangeOrderStatusView.as_view(), name='vendor-change-order-status'),
 
 
     path('vendor-productDetail-update/<vendor_id>/<product_pid>/', vendor_views.ProductDetailUpdate.as_view(), name='vendor-product-update'),

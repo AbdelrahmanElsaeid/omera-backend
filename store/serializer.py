@@ -803,7 +803,7 @@ class ProductOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ("id", "title_en", "image", "price_EGP", "category")
+        fields = ("id", "title_en", "image", "price_EGP", "category",'sku')
 
     def get_category(self, obj):
         """get category"""
@@ -989,3 +989,9 @@ class CartOrderVendorAllOrdersSerializer(serializers.ModelSerializer):
     #                 product.pop('description_en')
 
     #     return data
+
+
+class ChangeOrderStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CartOrder
+        fields = ['order_status']
