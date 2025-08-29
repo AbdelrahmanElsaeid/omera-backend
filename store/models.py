@@ -205,7 +205,7 @@ class Size(models.Model):
 class Color(models.Model):
     product = models.ForeignKey(Product,related_name="color_product", on_delete=models.SET_NULL, null=True)
     #name = models.CharField(max_length=1000)
-    color_code = models.CharField(max_length=1000)
+    color_code = models.CharField(max_length=1000,null=True, blank=True)
     name_en = models.CharField(max_length=100,null=True, blank=True)
     name_ar = models.CharField(max_length=100,null=True, blank=True)
     cid=ShortUUIDField(length=10,alphabet="abcdefg123456",null=True, blank=True)

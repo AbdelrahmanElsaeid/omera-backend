@@ -103,7 +103,7 @@ urlpatterns = [
     path('shop/<vendor_slug>/', vendor_views.ShopAPIView.as_view(), name='shop'),
     path('vendor-products/<vendor_slug>/', vendor_views.ShopProductsAPIView.as_view(), name='vendor-products'),
     path('vendor-product-create/', vendor_views.ProductCreateView.as_view(), name='vendor-product-create'),
-    path('vendor-product-update/<vendor_id>/<product_pid>/', vendor_views.ProductUpdateView.as_view(), name='vendor-product-update'),
+    path('vendor-product-update/<product_pid>/', vendor_views.ProductUpdateView.as_view(), name='vendor-product-update'),
     path('vendor-product-delete/<vendor_id>/<product_pid>/', vendor_views.ProductDeleteView.as_view(), name='vendor-product-delete'),
     path('vendor-change-order-status/<order_oid>/', vendor_views.ChangeOrderStatusView.as_view(), name='vendor-change-order-status'),
 
@@ -119,6 +119,8 @@ urlpatterns = [
     path('vendor-productSpecification-delete/<vendor_id>/<product_pid>/', vendor_views.SpecificationDeleteView.as_view(), name='vendor-product-update'),
     path('vendor-productColor-delete/<vendor_id>/<product_pid>/', vendor_views.ColorDeleteView.as_view(), name='vendor-product-update'),
     path('vendor-productSize-delete/<vendor_id>/<product_pid>/', vendor_views.SizeDeleteView.as_view(), name='vendor-product-update'),
+    path('vendor-product/', vendor_views.NewCreateProduct.as_view(), name='vendor-product'),
+    path('vendor-product/<pid>/', vendor_views.NewCreateProduct.as_view(), name='vendor-product'),
 
 
 

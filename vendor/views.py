@@ -56,6 +56,7 @@ from store.serializer import (
 from userauths.models import Profile
 from userauths.permissions import IsVendor
 from userauths.serializer import ProfileSerializer
+from vendor.serializer import ProductCreateSerializer, ProductDetailSerializer
 
 # Create your views here.
 from .models import Vendor
@@ -560,7 +561,7 @@ class ProductCreateView(generics.CreateAPIView):
 
 class ProductUpdateView(generics.RetrieveUpdateAPIView):
     queryset = Product.objects.all()
-    serializer_class = ProductAddSerializer
+    serializer_class = ProductDetailSerializer
     authentication_classes = [JWTAuthentication] 
     permission_classes = [IsAuthenticated, IsVendor] 
 
@@ -1146,7 +1147,18 @@ class ChangeOrderStatusView(generics.UpdateAPIView):
         return order
 
         
-        
+class NewCreateProduct(generics.CreateAPIView,generics.UpdateAPIView):
+    queryset = Product.objects.all()
+    serializer_class = ProductCreateSerializer
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated, IsVendor]
+    lookup_field='pid'
+
+    def get_serializer_context(self):
+        user_inst = self.request.user
+        context = super().get_serializer_context()
+        context['user_inst'] = user_inst
+        return context
 
         
         
