@@ -950,6 +950,11 @@ class ProductNewCollectionsAPIView(generics.ListAPIView):
     permission_classes = [AllowAny]
     # pagination_class = ProductPagination
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['currency_code'] = 'EGP'
+        return context
+
     
 
     

@@ -792,6 +792,7 @@ class ProductVendorListSerializer(serializers.ModelSerializer):
             "pid",
             "slug",
             "orders",
+            "sku"
         ]
 
     def get_category(self, obj):
